@@ -22,7 +22,6 @@
             float: left;
             width: 45%;
             padding-right: 5%;
-            resize: horizontal;
         }
 
         /* Clear floats after the columns */
@@ -100,11 +99,6 @@
         crossorigin="anonymous"></script>
     <script>
         var wikipieces = "https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png"
-        //wikipieces = "https://commons.wikimedia.org/wiki/File:Chess_{piece}t45.svg"
-        /*function wikipieces (piece){
-            var newpiece = piece.charAt(1).toLowerCase() + piece.charAt(0).replace("w", "l").replace("b", "d")
-            return `https://commons.wikimedia.org/wiki/File:Chess_${newpiece}t45.svg`
-        }*/
 
         var game = new Chess()
         var timeControl = 30
