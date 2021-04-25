@@ -1,0 +1,256 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+    <title>JanistanTV Chess Chat</title>
+    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css"
+        integrity="sha384-q94+BZtLrkL1/ohfjR8c6L+A6qzNH9R2hBLwyoAfu3i/WCvQjzL2RQJ3uNHDISdU" crossorigin="anonymous">
+    <style>
+        td,
+        th {
+            text-align: center;
+            padding: 5px;
+        }
+
+        .column {
+            float: left;
+            width: 45%;
+            padding-right: 5%;
+        }
+
+        /* Clear floats after the columns */
+        .row:after {
+            content: "";
+            display: table;
+            clear: both;
+        }
+
+        body {
+            padding-left: 2%;
+            padding-top: 2%;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="row">
+        <div class="column">
+            <div id="myBoard" style="width: 100%;"></div>
+
+            <div style="margin: auto">Clock: <a id="clock"></a></div>
+
+            <p>
+                <button id="startPositionBtn">New Game</button>
+                Time control: <input id="timeControl" type="number" step="1">
+            </p>
+
+        </div>
+
+        <div class="column">
+            <table id="suggestedMoves">
+                <tr>
+                    <th>Move</th>
+                    <th>Votes</th>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+
+    <p>
+        <b>Syntax:</b>
+        !move Ke2: Suggest or vote for the move Ke2
+    </p>
+
+    <p>
+        <b>Mod commands:</b>
+    <ul>
+        <li>!newgame: Start a new game</li>
+        <li> !timecontrol 10: Change the time per move to 10 seconds</li>
+        <li> !forcemove Ke2: Make the move Ke2</li>
+    </ul>
+    </p>
+
+    <p>
+        <b>Jan instructions:</b>
+    <ul>
+        <li>Click the "New Game" button to start a new game</li>
+        <li>Change the "Time control" input field to change the time control (also works during the game)</li>
+        <li>Drag pieces around on the board to make moves</li>
+        <li>Refresh the page if everything goes wrong</li>
+        <li>Help on Discord: Pengweng#4682</li>
+    </ul>
+    </p>
+
+    <script src="https://github.com/tmijs/tmi.js/releases/download/v1.8.3/tmi.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.js"
+        integrity="sha256-H+K7U5CnXl1h5ywQfKtSj8PCmoN9aaq30gDh27Xc0jk=" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"
+        integrity="sha384-8Vi8VHwn3vjQ9eUHUxex3JSN/NFqUg3QbPyX8kWyb93+8AC/pPWTzj+nHtbC5bxD"
+        crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.11.0/chess.js"
+        integrity="sha512-2tA34QJRWdUV1nO1r3c669PHEdHA8ft5yBqmW9epA+1mHMyWWdD2XGYlkGDwwgzhxqUODWW+r5RFTcv9aW0elg=="
+        crossorigin="anonymous"></script>
+    <script>
+        var wikipieces = "https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png"
+
+        var game = new Chess()
+        var timeControl = 30
+        var suggestedMoves = []
+        var lastMoveTime = new Date().getTime()
+
+        function writeMoveTable() {
+            str = "<tr>\
+                    <th>Move</th>\
+                    <th>Votes</th>\
+                   </tr>"
+            for (var i = 0; i < suggestedMoves.length; i++) {
+                move = suggestedMoves[i]
+                str = str + `<tr><td>${move.move}</td><td>${move.votes}</td></tr>`
+            }
+            document.getElementById("suggestedMoves").innerHTML = str
+        }
+
+        function onDragStart(source, piece, position, orientation) {
+            // do not pick up pieces if the game is over
+            if (game.game_over()) return false
+
+            // only pick up pieces for the side to move
+            if ((game.turn() === 'w' && piece.search(/^b/) !== -1) ||
+                (game.turn() === 'b' && piece.search(/^w/) !== -1)) {
+                return false
+            }
+        }
+
+        function onDrop(source, target) {
+            // see if the move is legal
+            var move = game.move({
+                from: source,
+                to: target,
+                promotion: 'q' // NOTE: always promote to a queen for example simplicity
+            })
+
+            // illegal move
+            if (move === null) return 'snapback'
+
+            // do legal move
+            suggestedMoves.length = 0
+            lastMoveTime = new Date().getTime()
+            writeMoveTable()
+        }
+
+        // update the board position after the piece snap
+        // for castling, en passant, pawn promotion
+        function onSnapEnd() {
+            board.position(game.fen())
+        }
+
+        function onStartButton() {
+            console.log("resetting")
+            board.start()
+            game.reset()
+            suggestedMoves.length = 0
+            writeMoveTable()
+        }
+
+        var config = {
+            draggable: true,
+            position: 'start',
+            pieceTheme: wikipieces,
+            onDragStart: onDragStart,
+            onDrop: onDrop,
+            onSnapEnd: onSnapEnd
+
+        }
+        var board = Chessboard('myBoard', config)
+
+        $('#startPositionBtn').on('click', onStartButton)
+        $('#timeControl').change(function () {
+            timeControl = $('#timeControl').val()
+        })
+        $('#timeControl').val(timeControl)
+
+        function movesorter(move1, move2) { return move2.votes - move1.votes }
+
+        function handleMoveSuggestion(suggestedMove) {
+            var maybe_move = game.move(suggestedMove, { sloppy: true })
+            if (maybe_move == null) {
+                return
+            }
+            game.undo()
+            var move = maybe_move.san
+            for (var i = 0; i < suggestedMoves.length; i++) {
+                if (suggestedMoves[i].move === move) {
+                    suggestedMoves[i].votes++
+                    suggestedMoves.sort(movesorter)
+                    console.log(suggestedMoves)
+                    writeMoveTable()
+                    return
+                }
+            }
+            suggestedMoves.push({ move: move, votes: 1 })
+            suggestedMoves.sort(movesorter)
+            console.log(suggestedMoves)
+            writeMoveTable()
+        }
+
+        function makeMove(move) {
+            if (!game.moves().includes(move)) {
+                console.log(`${move} is invalid`)
+                return
+            }
+            game.move(move)
+            board.position(game.fen())
+            lastMoveTime = new Date().getTime()
+            suggestedMoves.length = 0
+            writeMoveTable()
+        }
+
+        const client = new tmi.Client({
+            connection: { reconnect: true },
+            channels: ['JanistanTV']
+        });
+
+        client.connect();
+
+        client.on('message', (channel, tags, message, self) => {
+            var username = tags['display-name']
+            var ismod = username === "DrPengweng" || tags.mod
+            //console.log(`${tags['display-name']}: ${message}`);
+            var message = message.trim()
+            var words = message.split(" ")
+            //console.log(words)
+            //console.log(words==="!move")
+            if (words[0] === "!move") {
+                handleMoveSuggestion(words[1])
+            }
+            else if (words[0] === "!forcemove" && ismod) {
+                makeMove(words[1])
+            }
+            else if (words[0] === "!newgame" && ismod) {
+                onStartButton()
+            }
+            else if (words[0] === "!timecontrol" && ismod) {
+                if (words.length == 2) {
+                    timeControl = parseInt(words[1])
+                    $('#timeControl').val(timeControl)
+                }
+            }
+            if (new Date().getTime() - lastMoveTime > 1000 * timeControl) {
+                if (suggestedMoves.length > 0) {
+                    makeMove(suggestedMoves[0].move)
+                }
+            }
+        });
+        setInterval(function () {
+            var timeLeft = timeControl - (new Date().getTime() - lastMoveTime) / 1000
+            if (timeLeft < 0) { return }
+            document.getElementById("clock").innerHTML = Math.floor(timeLeft)
+        })
+
+    </script>
+</body>
+
+</html>
